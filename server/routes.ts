@@ -1,14 +1,148 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { storage, comparePasswords, hashPassword } from "./storage";
 import { translationService } from "./services/translation";
 import { speechRecognitionService } from "./services/speechRecognition";
 import { signalingMessageSchema, translationMessageSchema, insertCallSessionSchema } from "@shared/schema";
 import { z } from "zod";
+import session from "express-session";
+import MemoryStore from "memorystore";
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+
+const MemoryStoreSession = MemoryStore(session);
+
+// ── Auth middleware ────────────────────────────────────────────────────────────
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ error: "Not authenticated" });
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated() && (req.user as any)?.role === "admin") return next();
+  res.status(403).json({ error: "Admin access required" });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // ── Session & Passport setup ───────────────────────────────────────────────
+  app.use(session({
+    secret: process.env.SESSION_SECRET || "speakeasy-secret-2026",
+    resave: false,
+    saveUninitialized: false,
+    store: new MemoryStoreSession({ checkPeriod: 86400000 }),
+    cookie: { secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 days
+  }));
+
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  passport.use(new LocalStrategy(async (username, password, done) => {
+    try {
+      const user = await storage.getUserByUsername(username);
+      if (!user) return done(null, false, { message: "Invalid username or password" });
+      if (!user.isActive) return done(null, false, { message: "Account is disabled" });
+      const valid = await comparePasswords(password, user.password);
+      if (!valid) return done(null, false, { message: "Invalid username or password" });
+      return done(null, user);
+    } catch (err) {
+      return done(err);
+    }
+  }));
+
+  passport.serializeUser((user: any, done) => done(null, user.id));
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      const user = await storage.getUser(id);
+      done(null, user || false);
+    } catch (err) {
+      done(err);
+    }
+  });
+
+  // ── Auth routes ─────────────────────────────────────────────────────────────
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) return next(err);
+      if (!user) return res.status(401).json({ error: info?.message || "Login failed" });
+      req.logIn(user, (err) => {
+        if (err) return next(err);
+        const { password, ...safeUser } = user;
+        res.json({ user: safeUser });
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout(() => res.json({ success: true }));
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: "Not authenticated" });
+    const { password, ...safeUser } = req.user as any;
+    res.json({ user: safeUser });
+  });
+
+  // ── Admin routes ─────────────────────────────────────────────────────────────
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    const users = await storage.listUsers();
+    res.json(users.map(({ password, ...u }) => u));
+  });
+
+  app.post("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const { username, password, displayName, role, language } = req.body;
+      if (!username || !password || !displayName) {
+        return res.status(400).json({ error: "username, password, and displayName are required" });
+      }
+      const existing = await storage.getUserByUsername(username);
+      if (existing) return res.status(409).json({ error: "Username already taken" });
+      const user = await storage.createUser({ username, password, displayName, role: role || "user", language: language || "en" });
+      const { password: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  app.put("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const { displayName, role, language, isActive } = req.body;
+      const updated = await storage.updateUser(req.params.id, { displayName, role, language, isActive });
+      if (!updated) return res.status(404).json({ error: "User not found" });
+      const { password, ...safeUser } = updated;
+      res.json(safeUser);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const { newPassword } = req.body;
+      if (!newPassword) return res.status(400).json({ error: "newPassword is required" });
+      const hashed = await hashPassword(newPassword);
+      const updated = await storage.updateUser(req.params.id, { password: hashed });
+      if (!updated) return res.status(404).json({ error: "User not found" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      if (user.role === "admin") return res.status(403).json({ error: "Cannot delete admin account" });
+      await storage.deleteUser(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
 
   // REST API Routes
   app.post("/api/sessions", async (req, res) => {

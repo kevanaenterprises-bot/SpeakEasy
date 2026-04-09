@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import turtleLogo from "@assets/generated_images/Girl_turtle_talking_on_phone_d147f854.png";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Phone, Users, Heart, Shuffle, Copy, Globe, UserCircle, BookUser, Plus, Trash2, Share2, LogOut, MessageSquare } from "lucide-react";
+import { Phone, Users, Heart, Shuffle, Copy, UserCircle, BookUser, Plus, Trash2, Share2, LogOut, MessageSquare, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Language configs ──────────────────────────────────────────────────────────
@@ -85,13 +85,30 @@ function saveContacts(contacts: Contact[]) {
 }
 
 // ── Sign-in screen ─────────────────────────────────────────────────────────────
-function SignInScreen({ onSignIn }: { onSignIn: (name: string, language: string) => void }) {
-  const [name, setName] = useState("");
-  const [language, setLanguage] = useState("en");
+function SignInScreen({ onSignIn }: { onSignIn: (user: any) => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) onSignIn(name.trim(), language);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Login failed"); return; }
+      onSignIn(data.user);
+    } catch {
+      setError("Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -114,41 +131,24 @@ function SignInScreen({ onSignIn }: { onSignIn: (name: string, language: string)
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="flex items-center justify-center gap-2">
-              <UserCircle className="w-5 h-5" />
-              Welcome Back
+              <UserCircle className="w-5 h-5" /> Sign In
             </CardTitle>
-            <CardDescription>Sign in to access your phonebook and start calling</CardDescription>
+            <CardDescription>Use the credentials your admin provided</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <p className="text-sm text-destructive text-center bg-destructive/10 p-2 rounded">{error}</p>}
               <div className="space-y-1">
-                <label className="text-sm font-medium text-foreground">Your Name</label>
-                <Input
-                  type="text"
-                  placeholder="Enter your name..."
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  autoFocus
-                />
+                <label className="text-sm font-medium">Username</label>
+                <Input type="text" placeholder="Enter your username..." value={username} onChange={e => setUsername(e.target.value)} autoFocus />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-foreground">Your Language</label>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(LANGUAGES).map(([code, lang]) => (
-                      <SelectItem key={code} value={code}>
-                        {lang.flag} {lang.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium">Password</label>
+                <Input type="password" placeholder="Enter your password..." value={password} onChange={e => setPassword(e.target.value)} />
               </div>
-              <Button type="submit" className="w-full" disabled={!name.trim()}>
+              <Button type="submit" className="w-full" disabled={!username || !password || loading}>
                 <Phone className="w-4 h-4 mr-2" />
-                Sign In & Continue
+                {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           </CardContent>
@@ -226,39 +226,35 @@ export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
-  // Load user & contacts on mount
+  // Check server session on mount
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.currentUser);
-    if (saved) {
-      try { setCurrentUser(JSON.parse(saved)); } catch {}
-    }
-    setContacts(getContacts());
+    fetch("/api/auth/me").then(async res => {
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user);
+        // Load contacts from localStorage keyed by user ID
+        const savedContacts = localStorage.getItem(`${STORAGE_KEYS.contacts}-${data.user.id}`);
+        if (savedContacts) { try { setContacts(JSON.parse(savedContacts)); } catch {} }
+        setShowPhonebook(true);
+      }
+    });
     const savedRoomId = localStorage.getItem(STORAGE_KEYS.roomId);
     const savedIsHost = localStorage.getItem(STORAGE_KEYS.isHost);
-    if (savedRoomId) {
-      setRoomId(savedRoomId);
-      setIsHost(savedIsHost === "true");
-    }
+    if (savedRoomId) { setRoomId(savedRoomId); setIsHost(savedIsHost === "true"); }
   }, []);
 
-  // Open phonebook automatically after sign-in if contacts exist
-  useEffect(() => {
-    if (currentUser && contacts.length > 0) {
-      setShowPhonebook(true);
-    }
-  }, [currentUser]);
-
-  const handleSignIn = (name: string, language: string) => {
-    const user = { name, language };
+  const handleSignIn = (user: any) => {
     setCurrentUser(user);
-    localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(user));
+    const savedContacts = localStorage.getItem(`${STORAGE_KEYS.contacts}-${user.id}`);
+    if (savedContacts) { try { setContacts(JSON.parse(savedContacts)); } catch {} }
     setShowPhonebook(true);
-    toast({ title: `Welcome, ${name}! 🐢`, description: "Your phonebook is ready." });
+    toast({ title: `Welcome, ${user.displayName}! 🐢`, description: "Your phonebook is ready." });
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
     setCurrentUser(null);
-    localStorage.removeItem(STORAGE_KEYS.currentUser);
+    setContacts([]);
     setShowPhonebook(false);
   };
 
@@ -306,18 +302,18 @@ export default function Home() {
   const addContact = (contact: Contact) => {
     const updated = [...contacts, contact];
     setContacts(updated);
-    saveContacts(updated);
+    if (currentUser) localStorage.setItem(`${STORAGE_KEYS.contacts}-${currentUser.id}`, JSON.stringify(updated));
     toast({ title: "Contact Added!", description: `${contact.name} is in your phonebook.` });
   };
 
   const deleteContact = (id: string) => {
     const updated = contacts.filter(c => c.id !== id);
     setContacts(updated);
-    saveContacts(updated);
+    if (currentUser) localStorage.setItem(`${STORAGE_KEYS.contacts}-${currentUser.id}`, JSON.stringify(updated));
   };
 
   const saveLanguageAndNavigate = (targetRoomId: string) => {
-    const settings = { yourLanguage: currentUser?.language || 'en', partnerLanguage: 'vi' };
+    const settings = { yourLanguage: (currentUser as any)?.language || 'en', partnerLanguage: 'vi' };
     localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
     navigate(`/call/${targetRoomId}`);
   };
@@ -358,10 +354,15 @@ export default function Home() {
             <span>live translation</span>
           </p>
           {/* User badge */}
-          <div className="flex items-center justify-center gap-2 mt-3">
+          <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
             <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
-              {LANGUAGES[currentUser.language]?.flag} {currentUser.name}
+              {LANGUAGES[currentUser.language]?.flag} {currentUser.displayName}
             </span>
+            {currentUser.role === "admin" && (
+              <button onClick={() => navigate("/admin")} className="text-xs text-orange-500 hover:text-orange-600 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> Admin
+              </button>
+            )}
             <button onClick={handleSignOut} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               <LogOut className="w-3 h-3" /> Sign out
             </button>
