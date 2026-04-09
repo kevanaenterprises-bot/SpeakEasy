@@ -72,6 +72,13 @@ export default function VideoCall() {
     return () => leaveRoom();
   }, [joinRoom, leaveRoom]);
 
+  // Auto-enable translation when the peer connection is established
+  useEffect(() => {
+    if (isConnected && !isTranslationActive) {
+      toggleTranslation();
+    }
+  }, [isConnected]);
+
   const handleMicToggle = () => {
     toggleMicrophone();
     setIsMicMuted(!isMicMuted);
