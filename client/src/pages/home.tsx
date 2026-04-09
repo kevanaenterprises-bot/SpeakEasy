@@ -27,7 +27,7 @@ const LANGUAGES: Record<string, { name: string; flag: string }> = {
 };
 
 // ── Multilingual instructions for sharing ────────────────────────────────────
-const SHARE_INSTRUCTIONS: Record<string, string> = {
+const SHARE_INSTRUCTIONS: Record<string, (roomId: string, appUrl: string) => string> = {
   en: (roomId: string, appUrl: string) =>
     `Hey! I want to video call you on SpeakEasy — it translates our conversation live!\n\n1. Go to: ${appUrl}\n2. Enter this Room Code: ${roomId}\n3. Click "Join Call"\n\nThat's it — see you there! 🐢`,
   vi: (roomId: string, appUrl: string) =>
@@ -217,7 +217,7 @@ function AddContactModal({ onAdd, onClose }: { onAdd: (c: Contact) => void; onCl
 
 // ── Main Home Screen ───────────────────────────────────────────────────────────
 export default function Home() {
-  const [currentUser, setCurrentUser] = useState<{ name: string; language: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; displayName: string; role: string; language: string; isActive: boolean } | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [roomId, setRoomId] = useState("");
   const [isHost, setIsHost] = useState(false);
@@ -313,7 +313,7 @@ export default function Home() {
   };
 
   const saveLanguageAndNavigate = (targetRoomId: string) => {
-    const settings = { yourLanguage: (currentUser as any)?.language || 'en', partnerLanguage: 'vi' };
+    const settings = { yourLanguage: currentUser?.language || 'en', partnerLanguage: 'vi' };
     localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
     navigate(`/call/${targetRoomId}`);
   };
