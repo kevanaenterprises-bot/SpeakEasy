@@ -31,7 +31,7 @@ export function useWebRTC(roomId: string): UseWebRTCReturn {
 
     ws.onopen = () => {
       console.log("WebSocket connected");
-      setIsConnected(true);
+      // Don't set isConnected here - wait for actual WebRTC peer connection
     };
 
     ws.onmessage = async (event) => {
@@ -62,20 +62,38 @@ export function useWebRTC(roomId: string): UseWebRTCReturn {
   const initializePeerConnection = useCallback(async () => {
   if (peerConnectionRef.current) return;
 
+  // Fallback ICE servers including free TURN relay servers
+  // TURN servers are required for connections across different networks (mobile, NAT, etc.)
   let iceServers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ];
 
   try {
     const response = await fetch('/api/twilio-token');
     const data = await response.json();
     if (data.iceServers) {
-      iceServers = data.iceServers;
+      // Use Twilio servers but keep our STUN servers too
+      iceServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        ...data.iceServers,
+      ];
       console.log("✅ Got Twilio ICE servers");
     }
   } catch (e) {
-    console.warn("⚠️ Falling back to STUN only");
+    console.warn("⚠️ Twilio not configured, using free TURN fallback");
   }
 
   const peerConnection = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
@@ -107,15 +125,19 @@ export function useWebRTC(roomId: string): UseWebRTCReturn {
     peerConnection.onconnectionstatechange = () => {
       const state = peerConnection.connectionState;
       console.log("🔗 Connection state:", state);
-      
+
       if (state === 'connected') {
+        setIsConnected(true);
         setConnectionQuality("Excellent");
       } else if (state === 'connecting') {
-        setConnectionQuality("Good");
+        setIsConnected(false);
+        setConnectionQuality("Connecting...");
       } else if (state === 'disconnected') {
+        setIsConnected(false);
         setConnectionQuality("Poor");
       } else if (state === 'failed') {
-        console.error("❌ Connection failed!");
+        setIsConnected(false);
+        console.error("❌ WebRTC connection failed - check TURN server config");
         setConnectionQuality("Failed");
       }
     };
