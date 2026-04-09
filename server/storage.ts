@@ -2,7 +2,8 @@ import { type CallSession, type InsertCallSession, type Translation, type Insert
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import pkg from "pg";
+const { Pool } = pkg;
 import { eq } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
