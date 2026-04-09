@@ -131,9 +131,9 @@ export default function VideoCall() {
             </Button>
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center overflow-hidden">
-                <img src={turtleLogo} alt="Turtle Exchange Logo" className="w-full h-full object-cover rounded-lg" />
+                <img src={turtleLogo} alt="SpeakEasy Logo" className="w-full h-full object-cover rounded-lg" />
               </div>
-              <h1 className="text-3xl font-semibold text-foreground">Turtle Exchange</h1>
+              <h1 className="text-3xl font-semibold text-foreground">SpeakEasy</h1>
             </div>
           </div>
           <div className="flex items-center space-x-3">

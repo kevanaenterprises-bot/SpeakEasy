@@ -66,7 +66,17 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log("Translation WebSocket connected");
+      console.log("Translation WebSocket connected — joining room:", sessionId);
+      // Must join the room so we receive broadcast translation results
+      ws.send(JSON.stringify({
+        type: 'signaling',
+        data: {
+          type: 'join-room',
+          roomId: sessionId,
+          senderId: 'translation',
+          data: null,
+        }
+      }));
     };
 
     ws.onmessage = (event) => {

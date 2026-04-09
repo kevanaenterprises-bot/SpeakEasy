@@ -34,7 +34,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     updateLanguages(yourLanguage, partnerLanguage);
     
     // Save other settings to localStorage
-    localStorage.setItem('turtle-exchange-settings', JSON.stringify({
+    localStorage.setItem('speakeasy-settings', JSON.stringify({
       translationSpeed,
       audioQuality,
       autoScroll,

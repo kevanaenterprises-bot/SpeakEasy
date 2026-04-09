@@ -238,6 +238,10 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
 
         case 'participant-joined':
           console.log(`Participant joined. Total: ${message.participantCount}`);
+          // Re-announce our language so the new participant gets it
+          if (myLanguageRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'language-announce', language: myLanguageRef.current }));
+          }
           // Don't create offer here - wait for ready-to-receive from the callee
           break;
 

@@ -37,7 +37,7 @@ export const useLanguageSettings = () => {
 
   // Load settings from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('turtle-exchange-settings');
+    const saved = localStorage.getItem('speakeasy-settings');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -55,7 +55,7 @@ export const useLanguageSettings = () => {
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
-    const currentSettings = localStorage.getItem('turtle-exchange-settings');
+    const currentSettings = localStorage.getItem('speakeasy-settings');
     if (currentSettings) {
       try {
         const parsed = JSON.parse(currentSettings);
@@ -64,12 +64,12 @@ export const useLanguageSettings = () => {
           yourLanguage: settings.yourLanguage,
           partnerLanguage: settings.partnerLanguage,
         };
-        localStorage.setItem('turtle-exchange-settings', JSON.stringify(updated));
+        localStorage.setItem('speakeasy-settings', JSON.stringify(updated));
       } catch (error) {
-        localStorage.setItem('turtle-exchange-settings', JSON.stringify(settings));
+        localStorage.setItem('speakeasy-settings', JSON.stringify(settings));
       }
     } else {
-      localStorage.setItem('turtle-exchange-settings', JSON.stringify(settings));
+      localStorage.setItem('speakeasy-settings', JSON.stringify(settings));
     }
   }, [settings]);
 
