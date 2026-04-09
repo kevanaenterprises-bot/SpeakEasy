@@ -437,6 +437,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const srcLang = sourceLanguage || 'en';
         const tgtLang = targetLanguage || 'vi';
         
+        // Skip translation if same language — just echo the speech back
+        if (srcLang === tgtLang) {
+          const roomId = sessionId;
+          const echoMessage = {
+            type: 'translation',
+            data: {
+              type: 'translation-result',
+              originalText: data.text,
+              translatedText: data.text,
+              sourceLanguage: srcLang,
+              targetLanguage: tgtLang,
+              confidence: data.confidence || 0.9,
+              speakerId: speakerId,
+            }
+          };
+          if (rooms.has(roomId)) broadcastToRoom(roomId, echoMessage);
+          ws.send(JSON.stringify(echoMessage));
+          return;
+        }
+
         console.log(`🌐 Translating from ${srcLang} to ${tgtLang}`);
 
         try {

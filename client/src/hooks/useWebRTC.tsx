@@ -49,6 +49,9 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
           if (message.language) {
             setPartnerLanguage(message.language);
           }
+        } else if (message.type === 'translation') {
+          // Forward partner's translation result to the translation hook via custom event
+          window.dispatchEvent(new CustomEvent('translationBroadcast', { detail: message.data }));
         }
       } catch (error) {
         console.error("WebSocket message error:", error);

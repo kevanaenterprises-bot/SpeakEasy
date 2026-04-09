@@ -66,17 +66,7 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log("Translation WebSocket connected — joining room:", sessionId);
-      // Must join the room so we receive broadcast translation results
-      ws.send(JSON.stringify({
-        type: 'signaling',
-        data: {
-          type: 'join-room',
-          roomId: sessionId,
-          senderId: 'translation',
-          data: null,
-        }
-      }));
+      console.log("Translation WebSocket connected for room:", sessionId);
     };
 
     ws.onmessage = (event) => {
@@ -119,13 +109,20 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
       }
     };
 
+    // Listen for translation results broadcast by the video WebSocket (partner's speech)
+    const handlePartnerTranslation = (event: any) => {
+      if (event.detail) handleTranslationMessage(event.detail);
+    };
+
     window.addEventListener('speechRecognized', handleSpeechRecognized);
+    window.addEventListener('translationBroadcast', handlePartnerTranslation);
 
     return () => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
       window.removeEventListener('speechRecognized', handleSpeechRecognized);
+      window.removeEventListener('translationBroadcast', handlePartnerTranslation);
     };
   }, [isTranslationActive, isServiceAvailable]);
 
