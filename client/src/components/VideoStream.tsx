@@ -15,6 +15,7 @@ interface VideoStreamProps {
     sourceLanguage: string;
     targetLanguage: string;
   };
+  interimText?: string;
 }
 
 export default function VideoStream({
@@ -25,6 +26,7 @@ export default function VideoStream({
   isSpeaking,
   connectionQuality,
   currentTranslation,
+  interimText,
 }: VideoStreamProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -110,6 +112,7 @@ export default function VideoStream({
         direction={translationDirection}
         currentTranslation={currentTranslation}
         isActive={isSpeaking}
+        interimText={isLocal ? interimText : undefined}
         data-testid="translation-display"
       />
     </div>

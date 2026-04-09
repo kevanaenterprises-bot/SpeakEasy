@@ -42,6 +42,7 @@ export default function VideoCall() {
   const {
     isTranslationActive,
     currentTranslation,
+    interimText,
     toggleTranslation,
     isServiceAvailable,
   } = useTranslation(roomId);
@@ -210,6 +211,7 @@ export default function VideoCall() {
               isSpeaking={isTranslationActive}
               connectionQuality={connectionQuality}
               currentTranslation={currentTranslation?.local}
+              interimText={interimText}
               data-testid="video-stream-local"
             />
 

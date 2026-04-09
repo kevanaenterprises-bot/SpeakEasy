@@ -20,6 +20,7 @@ interface TranslationResult {
 interface UseTranslationReturn {
   isTranslationActive: boolean;
   currentTranslation: TranslationResult | null;
+  interimText: string;
   toggleTranslation: () => void;
   isServiceAvailable: boolean;
 }
@@ -28,6 +29,7 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
   const { yourLanguage, partnerLanguage, getSpeechCode } = useLanguageSettings();
   const [isTranslationActive, setIsTranslationActive] = useState(false);
   const [currentTranslation, setCurrentTranslation] = useState<TranslationResult | null>(null);
+  const [interimText, setInterimText] = useState("");
   const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Default to true since backend is working
   
   const wsRef = useRef<WebSocket | null>(null);
@@ -93,12 +95,18 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
     // Listen for speech recognition events
     const handleSpeechRecognized = (event: any) => {
       const { text, confidence, isFinal } = event.detail;
-      console.log(`🗣️ Speech ${isFinal ? 'FINAL' : 'interim'}:`, text);
-      
-      if (isFinal && text.trim()) {
+
+      if (!isFinal) {
+        // Show words on screen as you speak — instant feedback
+        setInterimText(text);
+        return;
+      }
+
+      // Final result — clear interim, send for translation
+      setInterimText("");
+      if (text.trim()) {
         const speechCode = yourLanguage.speechCode || 'en-US';
         const targetLang = partnerLanguage.code;
-        console.log(`📤 Sending final speech for translation: "${text}" from ${yourLanguage.code} to ${targetLang}`);
         sendTranslationMessage('speech-end', {
           transcript: text,
           sourceLanguage: yourLanguage.code,
@@ -243,6 +251,7 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
   return {
     isTranslationActive,
     currentTranslation,
+    interimText,
     toggleTranslation,
     isServiceAvailable,
   };

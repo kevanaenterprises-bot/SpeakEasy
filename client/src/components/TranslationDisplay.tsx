@@ -9,12 +9,14 @@ interface TranslationDisplayProps {
     targetLanguage: string;
   };
   isActive: boolean;
+  interimText?: string;
 }
 
 export default function TranslationDisplay({
   direction,
   currentTranslation,
   isActive,
+  interimText,
 }: TranslationDisplayProps) {
   return (
     <div className="bg-card rounded-lg border border-border p-4 min-h-[120px] shadow-sm" data-testid="translation-display">
@@ -31,15 +33,30 @@ export default function TranslationDisplay({
           </div>
         )}
       </div>
-      
-      <div className="space-y-2">
+
+      <div className="space-y-1">
+        {/* Interim speech — words appear as you speak */}
+        {interimText && (
+          <div className="text-muted-foreground text-base italic opacity-70" data-testid="text-interim">
+            {interimText}
+          </div>
+        )}
+
+        {/* Final translated text */}
         {currentTranslation ? (
-          <div className="text-foreground text-lg" data-testid="text-translated">
+          <div className="text-foreground text-lg font-medium" data-testid="text-translated">
             {currentTranslation.translatedText}
           </div>
-        ) : (
+        ) : !interimText ? (
           <div className="text-muted-foreground text-lg italic" data-testid="text-no-translation">
             {isActive ? "Listening..." : "Waiting for speech..."}
+          </div>
+        ) : null}
+
+        {/* Show original text smaller below translation */}
+        {currentTranslation && currentTranslation.originalText !== currentTranslation.translatedText && (
+          <div className="text-muted-foreground text-sm opacity-60 mt-1">
+            "{currentTranslation.originalText}"
           </div>
         )}
       </div>
