@@ -29,33 +29,33 @@ const LANGUAGES: Record<string, { name: string; flag: string }> = {
 // ── Multilingual instructions for sharing ────────────────────────────────────
 const SHARE_INSTRUCTIONS: Record<string, (roomId: string, appUrl: string) => string> = {
   en: (roomId: string, appUrl: string) =>
-    `Hey! I want to video call you on SpeakEasy — it translates our conversation live!\n\n1. Go to: ${appUrl}\n2. Enter this Room Code: ${roomId}\n3. Click "Join Call"\n\nThat's it — see you there! 🐢`,
+    `Hey! I want to video call you on SpeakEasy — it translates our conversation live!\n\nJust tap this link to join:\n${appUrl}/join/${roomId}\n\nNo account needed — see you there! 🐢`,
   vi: (roomId: string, appUrl: string) =>
-    `Xin chào! Tôi muốn gọi video cho bạn qua SpeakEasy — ứng dụng dịch cuộc trò chuyện của chúng ta trực tiếp!\n\n1. Truy cập: ${appUrl}\n2. Nhập mã phòng: ${roomId}\n3. Nhấn "Join Call"\n\nHẹn gặp bạn! 🐢`,
+    `Xin chào! Tôi muốn gọi video cho bạn qua SpeakEasy — ứng dụng dịch cuộc trò chuyện của chúng ta trực tiếp!\n\nNhấn vào liên kết này để tham gia:\n${appUrl}/join/${roomId}\n\nKhông cần tài khoản! 🐢`,
   es: (roomId: string, appUrl: string) =>
-    `¡Hola! Quiero hacer una videollamada contigo en SpeakEasy — ¡traduce nuestra conversación en vivo!\n\n1. Ve a: ${appUrl}\n2. Ingresa el código de sala: ${roomId}\n3. Haz clic en "Join Call"\n\n¡Nos vemos! 🐢`,
+    `¡Hola! Quiero hacer una videollamada contigo en SpeakEasy — ¡traduce nuestra conversación en vivo!\n\nSolo toca este enlace:\n${appUrl}/join/${roomId}\n\n¡No necesitas cuenta! 🐢`,
   fr: (roomId: string, appUrl: string) =>
-    `Salut ! Je veux t'appeler en vidéo sur SpeakEasy — il traduit notre conversation en direct !\n\n1. Va sur : ${appUrl}\n2. Entre le code de salle : ${roomId}\n3. Clique sur "Join Call"\n\nÀ tout de suite ! 🐢`,
+    `Salut ! Je veux t'appeler en vidéo sur SpeakEasy — il traduit notre conversation en direct !\n\nClique sur ce lien pour rejoindre :\n${appUrl}/join/${roomId}\n\nPas besoin de compte ! 🐢`,
   de: (roomId: string, appUrl: string) =>
-    `Hallo! Ich möchte dich über SpeakEasy per Video anrufen — es übersetzt unser Gespräch live!\n\n1. Gehe zu: ${appUrl}\n2. Gib den Raumcode ein: ${roomId}\n3. Klicke auf "Join Call"\n\nBis gleich! 🐢`,
+    `Hallo! Ich möchte dich über SpeakEasy per Video anrufen — es übersetzt unser Gespräch live!\n\nTippe auf diesen Link:\n${appUrl}/join/${roomId}\n\nKein Konto nötig! 🐢`,
   it: (roomId: string, appUrl: string) =>
-    `Ciao! Voglio fare una videochiamata con te su SpeakEasy — traduce la nostra conversazione in tempo reale!\n\n1. Vai su: ${appUrl}\n2. Inserisci il codice stanza: ${roomId}\n3. Clicca su "Join Call"\n\nA presto! 🐢`,
+    `Ciao! Voglio fare una videochiamata con te su SpeakEasy — traduce la nostra conversazione in tempo reale!\n\nTocca questo link per unirti:\n${appUrl}/join/${roomId}\n\nNessun account necessario! 🐢`,
   pt: (roomId: string, appUrl: string) =>
-    `Olá! Quero fazer uma videochamada com você no SpeakEasy — ele traduz nossa conversa ao vivo!\n\n1. Acesse: ${appUrl}\n2. Digite o código da sala: ${roomId}\n3. Clique em "Join Call"\n\nTe vejo lá! 🐢`,
+    `Olá! Quero fazer uma videochamada com você no SpeakEasy — ele traduz nossa conversa ao vivo!\n\nToque neste link para entrar:\n${appUrl}/join/${roomId}\n\nSem necessidade de conta! 🐢`,
   ru: (roomId: string, appUrl: string) =>
-    `Привет! Хочу позвонить тебе по видео в SpeakEasy — приложение переводит наш разговор в реальном времени!\n\n1. Перейди на: ${appUrl}\n2. Введи код комнаты: ${roomId}\n3. Нажми "Join Call"\n\nДо встречи! 🐢`,
+    `Привет! Хочу позвонить тебе по видео в SpeakEasy — приложение переводит наш разговор в реальном времени!\n\nНажми на ссылку:\n${appUrl}/join/${roomId}\n\nАккаунт не нужен! 🐢`,
   ja: (roomId: string, appUrl: string) =>
-    `こんにちは！SpeakEasyでビデオ通話しましょう — 会話をリアルタイムで翻訳します！\n\n1. アクセス: ${appUrl}\n2. ルームコードを入力: ${roomId}\n3. "Join Call"をクリック\n\nお待ちしています！🐢`,
+    `こんにちは！SpeakEasyでビデオ通話しましょう — 会話をリアルタイムで翻訳します！\n\nこのリンクをタップしてください：\n${appUrl}/join/${roomId}\n\nアカウント不要！🐢`,
   ko: (roomId: string, appUrl: string) =>
-    `안녕하세요! SpeakEasy로 영상통화 해요 — 대화를 실시간으로 번역해줘요!\n\n1. 접속: ${appUrl}\n2. 방 코드 입력: ${roomId}\n3. "Join Call" 클릭\n\n곧 만나요! 🐢`,
+    `안녕하세요! SpeakEasy로 영상통화 해요 — 대화를 실시간으로 번역해줘요!\n\n이 링크를 탭하세요:\n${appUrl}/join/${roomId}\n\n계정 불필요! 🐢`,
   zh: (roomId: string, appUrl: string) =>
-    `你好！我想通过SpeakEasy与你视频通话 — 它能实时翻译我们的对话！\n\n1. 访问: ${appUrl}\n2. 输入房间码: ${roomId}\n3. 点击"Join Call"\n\n见！🐢`,
+    `你好！我想通过SpeakEasy与你视频通话 — 它能实时翻译我们的对话！\n\n点击此链接加入：\n${appUrl}/join/${roomId}\n\n无需账号！🐢`,
   ar: (roomId: string, appUrl: string) =>
-    `مرحباً! أريد مكالمة فيديو معك على SpeakEasy — يترجم محادثتنا مباشرة!\n\n1. اذهب إلى: ${appUrl}\n2. أدخل كود الغرفة: ${roomId}\n3. اضغط "Join Call"\n\nأراك قريباً! 🐢`,
+    `مرحباً! أريد مكالمة فيديو معك على SpeakEasy — يترجم محادثتنا مباشرة!\n\nاضغط على هذا الرابط للانضمام:\n${appUrl}/join/${roomId}\n\nلا حاجة لحساب! 🐢`,
   hi: (roomId: string, appUrl: string) =>
-    `नमस्ते! मैं SpeakEasy पर आपसे वीडियो कॉल करना चाहता हूं — यह हमारी बातचीत का लाइव अनुवाद करता है!\n\n1. यहाँ जाएं: ${appUrl}\n2. रूम कोड दर्ज करें: ${roomId}\n3. "Join Call" पर क्लिक करें\n\nमिलते हैं! 🐢`,
+    `नमस्ते! मैं SpeakEasy पर आपसे वीडियो कॉल करना चाहता हूं — यह हमारी बातचीत का लाइव अनुवाद करता है!\n\nइस लिंक पर टैप करें:\n${appUrl}/join/${roomId}\n\nकोई अकाउंट जरूरी नहीं! 🐢`,
   th: (roomId: string, appUrl: string) =>
-    `สวัสดี! อยากโทรวิดีโอหาคุณผ่าน SpeakEasy — แปลการสนทนาของเรา live!\n\n1. ไปที่: ${appUrl}\n2. ใส่รหัสห้อง: ${roomId}\n3. คลิก "Join Call"\n\nเจอกันเลย! 🐢`,
+    `สวัสดี! อยากโทรวิดีโอหาคุณผ่าน SpeakEasy — แปลการสนทนาของเรา live!\n\nแตะลิงก์นี้เพื่อเข้าร่วม:\n${appUrl}/join/${roomId}\n\nไม่ต้องมีบัญชี! 🐢`,
 };
 
 interface Contact {
@@ -290,8 +290,11 @@ export default function Home() {
     const message = langFn(roomId, appUrl);
 
     if (contact.phone) {
-      // Open SMS with pre-filled message in their language
-      window.open(`sms:${contact.phone}?body=${encodeURIComponent(message)}`, "_blank");
+      // Copy to clipboard first so user has it regardless
+      navigator.clipboard.writeText(message).catch(() => {});
+      // Use location.href so browser handles the protocol without opening a blank tab
+      window.location.href = `sms:${contact.phone}?body=${encodeURIComponent(message)}`;
+      toast({ title: `Opening SMS to ${contact.name}`, description: "Message pre-filled and copied to clipboard." });
     } else {
       // Copy to clipboard if no phone number
       navigator.clipboard.writeText(message);

@@ -7,11 +7,13 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import VideoCall from "@/pages/video-call";
 import AdminDashboard from "@/pages/admin";
+import GuestJoin from "@/pages/guest-join";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/join/:roomId" component={GuestJoin} />
       <Route path="/call/:roomId" component={VideoCall} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
