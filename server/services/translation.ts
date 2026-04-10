@@ -26,10 +26,13 @@ export class TranslationService {
   private googleEndpoint = 'https://translation.googleapis.com/language/translate/v2';
 
   constructor() {
+    // Diagnostic: show which Google-related env vars Railway is actually passing
+    const googleVars = Object.keys(process.env).filter(k => k.toLowerCase().includes('google') || k.toLowerCase().includes('translat'));
+    console.log('🔍 Google/Translation env vars visible:', googleVars.length ? googleVars : 'NONE');
     if (_gApiKey()) {
-      console.log('Using Google Cloud Translation API - high accuracy translation!');
+      console.log('✅ Using Google Cloud Translation API - high accuracy translation!');
     } else {
-      console.log('Using MyMemory translation - no API key required!');
+      console.log('⚠️  Using MyMemory translation - GOOGLE_API_KEY_TRANSLATOR not found in env');
     }
   }
 
