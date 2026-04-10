@@ -47,7 +47,7 @@ export default function VideoCall() {
     toggleTranslation,
     isServiceAvailable,
     useGoogleSTTMode,
-  } = useTranslation(roomId);
+  } = useTranslation(roomId, localStream);
 
   // Use saved partner language — manual selection takes priority over auto-detect
   const partnerLanguage = savedPartnerLanguage;

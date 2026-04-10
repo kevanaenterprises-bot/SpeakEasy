@@ -5,6 +5,7 @@ interface UseGoogleSTTOptions {
   targetLanguage: string;     // e.g. "vi", "en"
   sessionId: string;
   wsRef: React.MutableRefObject<WebSocket | null>;
+  localStream?: MediaStream | null;  // reuse WebRTC stream instead of opening a second mic
   onInterim: (text: string) => void;
   onResult: (transcript: string, confidence: number) => void;
   isActive: boolean;
@@ -30,6 +31,7 @@ export function useGoogleSTT({
   targetLanguage,
   sessionId,
   wsRef,
+  localStream,
   onInterim,
   onResult,
   isActive,
@@ -189,8 +191,20 @@ export function useGoogleSTT({
   // ── Main start ─────────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      streamRef.current = stream;
+      // Prefer the existing WebRTC stream to avoid double getUserMedia on iOS
+      // (iOS Safari can be restrictive about concurrent mic access)
+      let stream: MediaStream;
+      if (localStream && localStream.getAudioTracks().length > 0) {
+        // Build a new MediaStream with just the audio track so we don't
+        // accidentally mute/stop the video when we clean up later
+        stream = new MediaStream(localStream.getAudioTracks());
+        streamRef.current = null; // don't stop tracks we don't own
+        console.log('🎙️ Reusing WebRTC audio track for Google STT');
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        streamRef.current = stream; // owned — we need to stop it ourselves
+        console.log('🎙️ Opened new mic stream for Google STT');
+      }
 
       const mimeType =
         MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
@@ -256,6 +270,7 @@ export function useGoogleSTT({
       mediaRecorderRef.current = null;
     }
 
+    // Only stop tracks we opened ourselves (not the shared WebRTC stream)
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;

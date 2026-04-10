@@ -27,7 +27,7 @@ interface UseTranslationReturn {
   useGoogleSTTMode: boolean;
 }
 
-export function useTranslation(sessionId: string): UseTranslationReturn {
+export function useTranslation(sessionId: string, localStream?: MediaStream | null): UseTranslationReturn {
   const { yourLanguage, partnerLanguage, getSpeechCode } = useLanguageSettings();
   const [isTranslationActive, setIsTranslationActive] = useState(false);
   const [currentTranslation, setCurrentTranslation] = useState<TranslationResult | null>(null);
@@ -73,11 +73,13 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
 
   // Google STT hook — active only when isTranslationActive and Google STT mode is on
   // Pass live state values (not refs) so dropdown changes propagate immediately via re-render
+  // Pass localStream to reuse the existing WebRTC audio track instead of opening a second mic
   useGoogleSTT({
     languageCode: yourLanguage?.speechCode || 'en-US',
     targetLanguage: partnerLanguage?.code || 'en',
     sessionId,
     wsRef,
+    localStream: localStream || null,
     isActive: isTranslationActive && useGoogleSTTMode,
     onInterim: (text) => setInterimText(text),
     onResult: (transcript, confidence) => {
