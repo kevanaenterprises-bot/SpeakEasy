@@ -48,17 +48,8 @@ export default function VideoCall() {
     isServiceAvailable,
   } = useTranslation(roomId);
 
-  // If the partner announces their language over WebRTC, update our display automatically
-  useEffect(() => {
-    if (detectedPartnerLanguage) {
-      updateLanguages(yourLanguage.code, detectedPartnerLanguage);
-    }
-  }, [detectedPartnerLanguage]);
-
-  // Use detected partner language if available, otherwise fall back to saved setting
-  const partnerLanguage = detectedPartnerLanguage
-    ? (SUPPORTED_LANGUAGES.find((l) => l.code === detectedPartnerLanguage) || savedPartnerLanguage)
-    : savedPartnerLanguage;
+  // Use saved partner language — manual selection takes priority over auto-detect
+  const partnerLanguage = savedPartnerLanguage;
 
   // Debug logging for translation state
   useEffect(() => {
@@ -205,6 +196,48 @@ export default function VideoCall() {
           </div>
         </div>
       </header>
+
+      {/* Language Selection Panel */}
+      <div className="bg-card border-b border-border px-6 py-3">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Languages</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">You speak:</span>
+            <select
+              className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground"
+              value={yourLanguage.code}
+              onChange={(e) => updateLanguages(e.target.value, partnerLanguage.code)}
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>{lang.flag} {lang.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1 text-muted-foreground">→</div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Partner speaks:</span>
+            <select
+              className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground"
+              value={partnerLanguage.code}
+              onChange={(e) => updateLanguages(yourLanguage.code, e.target.value)}
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>{lang.flag} {lang.name}</option>
+              ))}
+            </select>
+          </div>
+          {!isConnected && (
+            <span className="text-xs text-muted-foreground italic ml-2">
+              Set languages before your partner joins
+            </span>
+          )}
+          {isConnected && yourLanguage.code === partnerLanguage.code && (
+            <span className="text-xs text-yellow-500 italic ml-2">
+              ⚠ Same language selected — no translation will run
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Main Video Area */}
       <main className="flex-1 p-4 lg:p-6" data-testid="main-video-area">
