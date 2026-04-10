@@ -173,10 +173,10 @@ export function useGoogleSTT({
     };
 
     source.connect(processor);
-    // Use a muted gain node instead of connecting directly to destination
-    // This keeps the audio graph active (required for ScriptProcessorNode) without feedback
+    // Safari kills ScriptProcessorNode when gain is exactly 0 (audio graph optimization).
+    // Use an extremely small non-zero value — inaudible but keeps the graph alive.
     const gainNode = ctx.createGain();
-    gainNode.gain.value = 0;
+    gainNode.gain.value = 0.0001;
     processor.connect(gainNode);
     gainNode.connect(ctx.destination);
 
@@ -188,16 +188,21 @@ export function useGoogleSTT({
     console.log(`🎙️ Google STT started via AudioContext / LINEAR16 @ ${SAMPLE_RATE}Hz (iOS)`);
   }, [sendPCMChunk]);
 
+  // Ref so startRecording always reads the latest localStream (avoids stale closure)
+  const localStreamRef = useRef(localStream);
+  useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
+
   // ── Main start ─────────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     try {
-      // Prefer the existing WebRTC stream to avoid double getUserMedia on iOS
-      // (iOS Safari can be restrictive about concurrent mic access)
+      // Prefer the existing WebRTC stream to avoid double getUserMedia on iOS/Safari
+      // Use ref (not closure) so we always get the latest stream value
       let stream: MediaStream;
-      if (localStream && localStream.getAudioTracks().length > 0) {
+      const liveStream = localStreamRef.current;
+      if (liveStream && liveStream.getAudioTracks().length > 0) {
         // Build a new MediaStream with just the audio track so we don't
         // accidentally mute/stop the video when we clean up later
-        stream = new MediaStream(localStream.getAudioTracks());
+        stream = new MediaStream(liveStream.getAudioTracks());
         streamRef.current = null; // don't stop tracks we don't own
         console.log('🎙️ Reusing WebRTC audio track for Google STT');
       } else {
