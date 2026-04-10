@@ -31,6 +31,7 @@ export default function VideoCall() {
     localStream,
     remoteStream,
     isConnected,
+    wsConnected,
     connectionQuality,
     partnerLanguage: detectedPartnerLanguage,
     joinRoom,
@@ -116,6 +117,13 @@ export default function VideoCall() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background" data-testid="video-call-page">
+      {/* Connection lost banner */}
+      {!wsConnected && (
+        <div className="bg-destructive text-destructive-foreground text-center text-sm font-medium py-2 px-4 flex items-center justify-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse inline-block" />
+          Connection lost — attempting to reconnect... Your camera is still on but the room is not active.
+        </div>
+      )}
       {/* Header */}
       <header className="bg-card border-b border-border px-6 py-4" data-testid="header">
         {/* Top Row */}

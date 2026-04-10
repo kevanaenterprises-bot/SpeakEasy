@@ -4,6 +4,7 @@ interface UseWebRTCReturn {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   isConnected: boolean;
+  wsConnected: boolean;
   connectionQuality: string;
   partnerLanguage: string | null;
   joinRoom: () => void;
@@ -16,6 +17,7 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const [connectionQuality, setConnectionQuality] = useState("Excellent");
   const [partnerLanguage, setPartnerLanguage] = useState<string | null>(null);
 
@@ -24,6 +26,9 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
   const localStreamRef = useRef<MediaStream | null>(null);
   const roleRef = useRef<string | null>(null);
   const myLanguageRef = useRef<string | undefined>(myLanguage);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLeavingRef = useRef(false);
   useEffect(() => { myLanguageRef.current = myLanguage; }, [myLanguage]);
 
   const initializeWebSocket = useCallback(() => {
@@ -35,7 +40,19 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
 
     ws.onopen = () => {
       console.log("WebSocket connected");
-      // Don't set isConnected here - wait for actual WebRTC peer connection
+      setWsConnected(true);
+      // Clear any pending reconnect timer
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current);
+        reconnectRef.current = null;
+      }
+      // Start heartbeat — send a ping every 25s to prevent proxy/firewall timeouts
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      heartbeatRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 25000);
     };
 
     ws.onmessage = async (event) => {
@@ -45,14 +62,13 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
         if (message.type === 'signaling') {
           await handleSignalingMessage(message.data);
         } else if (message.type === 'language-announce') {
-          // Partner told us their language — update the display
           if (message.language) {
             setPartnerLanguage(message.language);
           }
         } else if (message.type === 'translation') {
-          // Forward partner's translation result to the translation hook via custom event
           window.dispatchEvent(new CustomEvent('translationBroadcast', { detail: message.data }));
         }
+        // 'pong' and other server messages are silently ignored
       } catch (error) {
         console.error("WebSocket message error:", error);
       }
@@ -60,12 +76,24 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
 
     ws.onclose = () => {
       console.log("WebSocket disconnected");
+      setWsConnected(false);
       setIsConnected(false);
+      // Clear heartbeat
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+      // Auto-reconnect if we didn't leave intentionally
+      if (!isLeavingRef.current) {
+        console.log("⚠️ Unexpected disconnect — reconnecting in 3s...");
+        reconnectRef.current = setTimeout(() => {
+          initializeWebSocket();
+        }, 3000);
+      }
     };
 
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
-      setIsConnected(false);
     };
 
     wsRef.current = ws;
@@ -455,6 +483,19 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
   }, [roomId, initializeWebSocket, initializePeerConnection]);
 
   const leaveRoom = useCallback(() => {
+    // Mark as intentional leave so auto-reconnect doesn't fire
+    isLeavingRef.current = true;
+
+    // Clear heartbeat and reconnect timers
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+    if (reconnectRef.current) {
+      clearTimeout(reconnectRef.current);
+      reconnectRef.current = null;
+    }
+
     // Stop local stream
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
@@ -483,6 +524,7 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
     }
 
     setIsConnected(false);
+    setWsConnected(false);
     setRemoteStream(null);
   }, [roomId]);
 
@@ -514,6 +556,7 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
     localStream,
     remoteStream,
     isConnected,
+    wsConnected,
     connectionQuality,
     partnerLanguage,
     joinRoom,
