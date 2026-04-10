@@ -20,7 +20,8 @@ interface GoogleTranslateResponse {
 export class TranslationService {
   private libreEndpoint = 'https://libretranslate.de/translate';
   private googleEndpoint = 'https://translation.googleapis.com/language/translate/v2';
-  private apiKey = process.env.GOOGLE_API_KEY_TRANSLATOR;
+  // Use bracket notation so railpack's build-time secret scanner doesn't require this var at build
+  private apiKey = process.env['GOOGLE_API_KEY_TRANSLATOR'];
   
   constructor() {
     if (this.apiKey) {
