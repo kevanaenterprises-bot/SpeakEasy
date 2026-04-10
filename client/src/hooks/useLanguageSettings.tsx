@@ -32,7 +32,7 @@ interface LanguageSettings {
 export const useLanguageSettings = () => {
   const [settings, setSettings] = useState<LanguageSettings>({
     yourLanguage: "en",
-    partnerLanguage: "vi",
+    partnerLanguage: "en",
   });
 
   // Load settings from localStorage on mount
