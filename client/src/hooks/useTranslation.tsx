@@ -30,8 +30,14 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
   const [isTranslationActive, setIsTranslationActive] = useState(false);
   const [currentTranslation, setCurrentTranslation] = useState<TranslationResult | null>(null);
   const [interimText, setInterimText] = useState("");
-  const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Default to true since backend is working
-  
+  const [isServiceAvailable, setIsServiceAvailable] = useState(true);
+
+  // Refs so speech handlers always read the latest language without stale closures
+  const yourLanguageRef = useRef(yourLanguage);
+  const partnerLanguageRef = useRef(partnerLanguage);
+  useEffect(() => { yourLanguageRef.current = yourLanguage; }, [yourLanguage]);
+  useEffect(() => { partnerLanguageRef.current = partnerLanguage; }, [partnerLanguage]);
+
   const wsRef = useRef<WebSocket | null>(null);
   const { startListening, stopListening, isListening } = useSpeechRecognition();
 
@@ -97,21 +103,20 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
       const { text, confidence, isFinal } = event.detail;
 
       if (!isFinal) {
-        // Show words on screen as you speak — instant feedback
         setInterimText(text);
         return;
       }
 
-      // Final result — clear interim, send for translation
+      // Always read from refs so language changes in the dropdown take effect immediately
       setInterimText("");
       if (text.trim()) {
-        const speechCode = yourLanguage.speechCode || 'en-US';
-        const targetLang = partnerLanguage.code;
+        const src = yourLanguageRef.current;
+        const tgt = partnerLanguageRef.current;
         sendTranslationMessage('speech-end', {
           transcript: text,
-          sourceLanguage: yourLanguage.code,
-          targetLanguage: targetLang,
-          speechCode: speechCode,
+          sourceLanguage: src.code,
+          targetLanguage: tgt.code,
+          speechCode: src.speechCode || 'en-US',
           confidence: confidence || 0.9,
         });
       }
@@ -193,15 +198,16 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
   };
 
   const startSpeechRecognition = useCallback(async () => {
-    const speechCode = yourLanguage.speechCode || 'en-US';
-    console.log(`🎤 Starting CONTINUOUS speech recognition for ${yourLanguage.name} (${speechCode})...`);
-    
+    const src = yourLanguageRef.current;
+    const tgt = partnerLanguageRef.current;
+    const speechCode = src.speechCode || 'en-US';
+    console.log(`🎤 Starting CONTINUOUS speech recognition for ${src.name} (${speechCode})...`);
+
     try {
-      // Send speech start message
       console.log("📡 Sending speech-start message");
       sendTranslationMessage('speech-start', {
-        sourceLanguage: yourLanguage.code,
-        targetLanguage: partnerLanguage.code,
+        sourceLanguage: src.code,
+        targetLanguage: tgt.code,
         speechCode: speechCode,
       });
 
