@@ -310,6 +310,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await handleTranslationMessage(ws, translationMsg);
         }
 
+        // Keepalive ping — just acknowledge silently
+        else if (message.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
+
         // Handle language announcements — broadcast to everyone else in the room
         else if (message.type === 'language-announce') {
           const roomId = connectionRooms.get(ws);
@@ -324,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Google STT not available — client should fall back to Web Speech API
             return;
           }
-          const { audioBase64, languageCode, sessionId, speakerId } = message;
+          const { audioBase64, languageCode, sessionId, speakerId, targetLanguage } = message;
           if (!audioBase64 || !languageCode || !sessionId) return;
 
           const audioBuffer = Buffer.from(audioBase64, 'base64');
@@ -334,12 +339,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           console.log(`🎙️ Google STT [${languageCode}]: "${result.transcript}"`);
 
-          // Determine target language — find the other participant's language
-          const roomId = connectionRooms.get(ws);
-          const targetLanguage = message.targetLanguage || 'en';
+          // Use sessionId as roomId — translation WS doesn't do join-room signaling
+          const roomId = sessionId;
+          const tgtLang = targetLanguage || 'en';
 
           // If same language, just echo the transcript back (no translation needed)
-          if (languageCode.split('-')[0] === targetLanguage) {
+          if (languageCode.split('-')[0] === tgtLang) {
             ws.send(JSON.stringify({
               type: 'stt-result',
               transcript: result.transcript,
@@ -353,11 +358,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const translation = await translationService.translateText(
               result.transcript,
-              targetLanguage,
+              tgtLang,
               languageCode.split('-')[0]
             );
 
-            // Send transcript back to the speaker
+            // Send transcript back to the speaker (their local display)
             ws.send(JSON.stringify({
               type: 'stt-result',
               transcript: result.transcript,
@@ -365,8 +370,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               languageCode,
             }));
 
-            // Broadcast translation to the room
-            if (roomId) {
+            // Send local translation result to the speaker themselves
+            ws.send(JSON.stringify({
+              type: 'translation',
+              data: {
+                type: 'translation-result',
+                originalText: result.transcript,
+                translatedText: translation.translatedText,
+                sourceLanguage: languageCode.split('-')[0],
+                targetLanguage: tgtLang,
+                speakerId: 'local',  // from the speaker's own perspective
+              }
+            }));
+
+            // Broadcast translation to others in the room
+            // Always use speakerId: 'remote' — from every recipient's perspective this is remote speech
+            if (rooms.has(roomId)) {
               broadcastToRoom(roomId, {
                 type: 'translation',
                 data: {
@@ -374,23 +393,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   originalText: result.transcript,
                   translatedText: translation.translatedText,
                   sourceLanguage: languageCode.split('-')[0],
-                  targetLanguage,
-                  speakerId: speakerId || 'remote',
+                  targetLanguage: tgtLang,
+                  speakerId: 'remote',
                 }
               }, ws);
-
-              // Also send to self (local display)
-              ws.send(JSON.stringify({
-                type: 'translation',
-                data: {
-                  type: 'translation-result',
-                  originalText: result.transcript,
-                  translatedText: translation.translatedText,
-                  sourceLanguage: languageCode.split('-')[0],
-                  targetLanguage,
-                  speakerId: 'local',
-                }
-              }));
+              console.log(`📡 Broadcast STT translation to room ${roomId} (${rooms.get(roomId)?.size ?? 0} participants)`);
+            } else {
+              console.warn(`⚠️ Room ${roomId} not found for STT broadcast — is the WebRTC WS in the same room?`);
             }
           } catch (err) {
             console.error('Translation after STT failed:', err);

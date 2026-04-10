@@ -88,35 +88,60 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
   useEffect(() => {
     if (!isTranslationActive || !isServiceAvailable) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const ws = new WebSocket(wsUrl);
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isCleanedUp = false;
 
-    ws.onopen = () => {
-      console.log("Translation WebSocket connected for room:", sessionId);
-    };
+    const connect = () => {
+      if (isCleanedUp) return;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const ws = new WebSocket(wsUrl);
 
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
+      ws.onopen = () => {
+        console.log("Translation WebSocket connected for room:", sessionId);
+        // Keepalive ping every 20s to prevent proxy timeouts during silence
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 20000);
+      };
 
-        if (message.type === 'translation') {
-          handleTranslationMessage(message.data);
-        } else if (message.type === 'stt-result') {
-          // Google STT transcript confirmed — show as interim cleared
-          setInterimText('');
-          console.log(`🎙️ STT confirmed: "${message.transcript}" (${Math.round(message.confidence * 100)}%)`);
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+
+          if (message.type === 'translation') {
+            handleTranslationMessage(message.data);
+          } else if (message.type === 'stt-result') {
+            // Google STT transcript confirmed — show as interim cleared
+            setInterimText('');
+            console.log(`🎙️ STT confirmed: "${message.transcript}" (${Math.round(message.confidence * 100)}%)`);
+          }
+          // 'pong' or other keepalive replies are silently ignored
+        } catch (error) {
+          console.error("❌ Translation WebSocket message error:", error);
         }
-      } catch (error) {
-        console.error("❌ Translation WebSocket message error:", error);
-      }
+      };
+
+      ws.onclose = () => {
+        console.log("Translation WebSocket disconnected");
+        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+        // Auto-reconnect while translation is still active
+        if (!isCleanedUp) {
+          reconnectTimer = setTimeout(() => {
+            console.log("🔄 Reconnecting translation WebSocket...");
+            connect();
+          }, 2000);
+        }
+      };
+
+      wsRef.current = ws;
     };
 
-    ws.onclose = () => {
-      console.log("Translation WebSocket disconnected");
-    };
-
-    wsRef.current = ws;
+    connect();
 
     // Listen for speech recognition events (Web Speech API — only when Google STT is not active)
     const handleSpeechRecognized = (event: any) => {
@@ -152,8 +177,11 @@ export function useTranslation(sessionId: string): UseTranslationReturn {
     window.addEventListener('translationBroadcast', handlePartnerTranslation);
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
+      isCleanedUp = true;
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
       }
       window.removeEventListener('speechRecognized', handleSpeechRecognized);
       window.removeEventListener('translationBroadcast', handlePartnerTranslation);
