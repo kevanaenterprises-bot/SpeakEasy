@@ -9,13 +9,11 @@ const queryClient = new QueryClient()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <BlinkUIProvider theme="linear" darkMode="system">
-          <Toaster />
-          <div className="flex w-full flex-1 flex-col min-h-0">
-            <App />
-          </div>
-        </BlinkUIProvider>
-      </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <BlinkUIProvider theme="linear" darkMode="system">
+        <Toaster />
+        <App />
+      </BlinkUIProvider>
+    </QueryClientProvider>
   </React.StrictMode>,
 )
