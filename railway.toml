@@ -1,7 +1,7 @@
 [build]
 builder = "nixpacks"
-buildCommand = "cd client && npm install --legacy-peer-deps && npm run build"
+buildCommand = "npm install --legacy-peer-deps && npm run build"
 
 [deploy]
-startCommand = "node -e \"const fs=require('fs');const path=require('path');const http=require('http');const dist=path.join(__dirname,'dist');const mime={'html':'text/html','js':'application/javascript','css':'text/css','png':'image/png','jpg':'image/jpeg','svg':'image/svg+xml'};http.createServer((req,res)=>{let p=path.join(dist,req.url==='/'?'index.html':req.url);if(!fs.existsSync(p))p=path.join(dist,'index.html');const ext=path.extname(p).slice(1);res.writeHead(200,{'Content-Type':mime[ext]||'text/plain'});res.end(fs.readFileSync(p))}).listen(3000)\""
+startCommand = "node -e \"const fs=require('fs');const path=require('path');const http=require('http');const dist=path.join('/app','dist');const mime={'html':'text/html','js':'application/javascript','css':'text/css','png':'image/png','jpg':'image/jpeg','svg':'image/svg+xml'};http.createServer((req,res)=>{let p=path.join(dist,req.url==='/'?'index.html':req.url);if(!fs.existsSync(p))p=path.join(dist,'index.html');const ext=path.extname(p).slice(1);res.writeHead(200,{'Content-Type':mime[ext]||'text/plain'});res.end(fs.readFileSync(p))}).listen(3000)\""
 healthCheckPath = "/"
