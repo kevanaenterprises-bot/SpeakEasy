@@ -3,5 +3,5 @@ builder = "nixpacks"
 buildCommand = "npm install --legacy-peer-deps && npm run build"
 
 [deploy]
-startCommand = "node server/static-server.cjs"
-healthCheckPath = "/"
+startCommand = "NODE_ENV=production node dist/index.js"
+healthCheckPath = "/api/health"
