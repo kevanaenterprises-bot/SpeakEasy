@@ -3,4 +3,4 @@ builder = "nixpacks"
 buildCommand = "cd client && npm install --legacy-peer-deps && npm run build"
 
 [deploy]
-startCommand = "cd /app && caddy run --config /app/Caddyfile"
+startCommand = "npx serve dist -l $PORT"
