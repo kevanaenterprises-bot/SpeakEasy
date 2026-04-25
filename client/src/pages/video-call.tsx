@@ -4,6 +4,7 @@ import { useWebRTC } from "@/hooks/useWebRTC";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useLanguageSettings, SUPPORTED_LANGUAGES } from "@/hooks/useLanguageSettings";
 import VideoStream from "@/components/VideoStream";
+import AudioVisualizer from "@/components/AudioVisualizer";
 import CallControls from "@/components/CallControls";
 import SettingsModal from "@/components/SettingsModal";
 import { Button } from "@/components/ui/button";
@@ -172,6 +173,7 @@ export default function VideoCall() {
                   {useGoogleSTTMode ? 'Google STT' : 'Web Speech'}
                 </span>
               )}
+              <AudioVisualizer stream={localStream} isActive={isTranslationActive} />
             </div>
           </div>
           
