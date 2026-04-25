@@ -295,6 +295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // These are the WSs that listen for translation results
   const translationRooms = new Map<string, Set<WebSocket>>();
   const translationConnectionRooms = new Map<WebSocket, string>();
+  // Store each connection's language pair: ws → { yourLanguage, targetLanguage }
+  const connectionLanguages = new Map<WebSocket, { yourLanguage: string; targetLanguage: string }>();
 
   wss.on('connection', (ws: WebSocket) => {
     console.log('New WebSocket connection');
@@ -322,14 +324,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Translation WS room registration — does NOT trigger WebRTC participant events
         else if (message.type === 'translation-join') {
-          const { sessionId: tSessionId } = message;
+          const { sessionId: tSessionId, yourLanguage: yl, targetLanguage: tl } = message;
           if (tSessionId) {
             if (!translationRooms.has(tSessionId)) {
               translationRooms.set(tSessionId, new Set());
             }
             translationRooms.get(tSessionId)!.add(ws);
             translationConnectionRooms.set(ws, tSessionId);
-            console.log(`🔗 Translation WS joined room ${tSessionId} (${translationRooms.get(tSessionId)?.size} translation connection(s))`);
+            if (yl || tl) connectionLanguages.set(ws, { yourLanguage: yl || 'en', targetLanguage: tl || 'en' });
+            console.log(`🔗 Translation WS joined room ${tSessionId} (${translationRooms.get(tSessionId)?.size} connection(s)) langs: ${yl}→${tl}`);
+          }
+        }
+
+        // Language pair update — client changed dropdown mid-call
+        else if (message.type === 'language-update') {
+          const { yourLanguage: yl, targetLanguage: tl } = message;
+          if (yl || tl) {
+            connectionLanguages.set(ws, { yourLanguage: yl || 'en', targetLanguage: tl || 'en' });
+            console.log(`🔄 Language update: ${yl}→${tl}`);
           }
         }
 
@@ -362,14 +374,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (!result?.transcript?.trim()) return;
 
-          console.log(`🎙️ Google STT [${languageCode}]: "${result.transcript}"`);
+          // Use stored language pair (set at join + updated on dropdown change) as authoritative.
+          // Fall back to what the audio-chunk message says, then to 'en'.
+          const storedLangs = connectionLanguages.get(ws);
+          const tgtLang = storedLangs?.targetLanguage || targetLanguage || 'en';
+          const srcLangCode = storedLangs?.yourLanguage || languageCode.split('-')[0];
+
+          console.log(`🎙️ Google STT [${languageCode}]: "${result.transcript}" | target=${tgtLang} (chunk said: ${targetLanguage || 'none'})`);
 
           // Use sessionId as roomId — translation WS doesn't do join-room signaling
           const roomId = sessionId;
-          const tgtLang = targetLanguage || 'en';
 
           // If same language, just echo the transcript back (no translation needed)
-          if (languageCode.split('-')[0] === tgtLang) {
+          if (srcLangCode === tgtLang) {
             ws.send(JSON.stringify({
               type: 'stt-result',
               transcript: result.transcript,
@@ -380,12 +397,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Translate
+          console.log(`🌐 Translating "${result.transcript}" from ${srcLangCode} to ${tgtLang}`);
           try {
             const translation = await translationService.translateText(
               result.transcript,
               tgtLang,
-              languageCode.split('-')[0]
+              srcLangCode
             );
+            console.log(`✅ Translation: "${translation.translatedText}"`);
 
             // Send transcript back to the speaker (their local display)
             ws.send(JSON.stringify({
@@ -402,14 +421,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 type: 'translation-result',
                 originalText: result.transcript,
                 translatedText: translation.translatedText,
-                sourceLanguage: languageCode.split('-')[0],
+                sourceLanguage: srcLangCode,
                 targetLanguage: tgtLang,
-                speakerId: 'local',  // from the speaker's own perspective
+                speakerId: 'local',
               }
             }));
 
             // Broadcast translation to partner's translation WS
-            // Always use speakerId: 'remote' — from every recipient's perspective this is remote speech
             const tRoom = translationRooms.get(roomId);
             if (tRoom && tRoom.size > 0) {
               const broadcastMsg = JSON.stringify({
@@ -418,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   type: 'translation-result',
                   originalText: result.transcript,
                   translatedText: translation.translatedText,
-                  sourceLanguage: languageCode.split('-')[0],
+                  sourceLanguage: srcLangCode,
                   targetLanguage: tgtLang,
                   speakerId: 'remote',
                 }
@@ -484,6 +502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         translationConnectionRooms.delete(ws);
       }
+      connectionLanguages.delete(ws);
 
       console.log(`📊 After close - Active rooms: ${rooms.size}, translation rooms: ${translationRooms.size}`);
     });

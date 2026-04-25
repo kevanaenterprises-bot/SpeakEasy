@@ -40,6 +40,16 @@ export function useTranslation(sessionId: string, localStream?: MediaStream | nu
   useEffect(() => { yourLanguageRef.current = yourLanguage; }, [yourLanguage]);
   useEffect(() => { partnerLanguageRef.current = partnerLanguage; }, [partnerLanguage]);
 
+  // When language dropdowns change mid-call, tell the server the new pair immediately
+  useEffect(() => {
+    if (!isTranslationActive || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({
+      type: 'language-update',
+      yourLanguage: yourLanguage?.code || 'en',
+      targetLanguage: partnerLanguage?.code || 'en',
+    }));
+  }, [yourLanguage?.code, partnerLanguage?.code]);
+
   const wsRef = useRef<WebSocket | null>(null);
   const [useGoogleSTTMode, setUseGoogleSTTMode] = useState(false);
   const { startListening, stopListening, isListening } = useSpeechRecognition();
@@ -104,8 +114,13 @@ export function useTranslation(sessionId: string, localStream?: MediaStream | nu
 
       ws.onopen = () => {
         console.log("Translation WebSocket connected for room:", sessionId);
-        // Register with the room so broadcastToRoom reaches this connection
-        ws.send(JSON.stringify({ type: 'translation-join', sessionId }));
+        // Register with the room and include the current language pair
+        ws.send(JSON.stringify({
+          type: 'translation-join',
+          sessionId,
+          yourLanguage: yourLanguageRef.current?.code || 'en',
+          targetLanguage: partnerLanguageRef.current?.code || 'en',
+        }));
         // Keepalive ping every 20s to prevent proxy timeouts during silence
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         heartbeatTimer = setInterval(() => {

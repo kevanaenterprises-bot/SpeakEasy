@@ -310,6 +310,8 @@ export default function Home() {
     }
     const appUrl = window.location.origin;
     const myLang = currentUser?.language || 'en';
+    // Pre-set host language settings so "Start Call" uses the right pair
+    localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify({ yourLanguage: myLang, partnerLanguage: contact.language }));
     // Embed language hints so the guest's join page pre-fills both dropdowns
     const joinUrl = `${appUrl}/join/${roomId}?hostLang=${myLang}&guestLang=${contact.language}`;
     const langFn = SHARE_INSTRUCTIONS[contact.language] || SHARE_INSTRUCTIONS.en;
