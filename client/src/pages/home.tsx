@@ -173,8 +173,8 @@ function AddContactModal({ onAdd, onClose }: { onAdd: (c: Contact) => void; onCl
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-sm bg-background border shadow-xl">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
+      <Card className="w-full max-w-sm border-2 shadow-2xl" style={{ backgroundColor: 'white' }}>
         <CardHeader>
           <CardTitle>Add Contact</CardTitle>
           <CardDescription>Save someone to your SpeakEasy phonebook</CardDescription>
