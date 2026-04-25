@@ -3,8 +3,9 @@ import type { Config } from 'tailwindcss'
 export default {
   darkMode: ['class'],
   content: [
-    './index.html',
-    './src/**/*.{js,ts,jsx,tsx}',
+    './client/index.html',
+    './client/src/**/*.{js,ts,jsx,tsx}',
+    './node_modules/@blinkdotnew/ui/dist/index.mjs',
   ],
   theme: {
     extend: {

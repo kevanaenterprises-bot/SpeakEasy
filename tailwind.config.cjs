@@ -2,9 +2,8 @@
 module.exports = {
   darkMode: ["class"],
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-    // Scan @blinkdotnew/ui so its Tailwind classes aren't purged
+    "./client/index.html",
+    "./client/src/**/*.{js,ts,jsx,tsx}",
     "./node_modules/@blinkdotnew/ui/dist/index.mjs",
   ],
   theme: {
