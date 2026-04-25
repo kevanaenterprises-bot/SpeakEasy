@@ -71,6 +71,15 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
       });
 
       return new Promise((resolve, reject) => {
+        let settled = false;
+        const settle = (err?: Error) => {
+          if (settled) return;
+          settled = true;
+          setIsListening(false);
+          if (err) reject(err);
+          else resolve(null);
+        };
+
         recognition.onstart = () => {
           setIsListening(true);
           console.log('🎤 Speech recognition STARTED successfully! Say something...');
@@ -83,26 +92,26 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
           const speechResult = results[lastResultIndex][0];
           const recognizedText = speechResult.transcript;
           const confidence = speechResult.confidence || 0.9;
-          
+
           // Process both interim and final results
           if (results[lastResultIndex].isFinal) {
             setTranscript(recognizedText);
             console.log('🎯 FINAL speech recognized:', recognizedText, 'Confidence:', confidence);
-            
+
             // Send final result for translation immediately
             if (recognizedText.trim()) {
               console.log('📤 Sending for translation:', recognizedText);
               // Dispatch a custom event that the translation hook can listen to
-              window.dispatchEvent(new CustomEvent('speechRecognized', { 
-                detail: { text: recognizedText, confidence, isFinal: true } 
+              window.dispatchEvent(new CustomEvent('speechRecognized', {
+                detail: { text: recognizedText, confidence, isFinal: true }
               }));
             }
           } else {
             console.log('📝 Interim speech:', recognizedText);
             // Also send interim results for live preview
             if (recognizedText.trim()) {
-              window.dispatchEvent(new CustomEvent('speechRecognized', { 
-                detail: { text: recognizedText, confidence, isFinal: false } 
+              window.dispatchEvent(new CustomEvent('speechRecognized', {
+                detail: { text: recognizedText, confidence, isFinal: false }
               }));
             }
           }
@@ -110,13 +119,14 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
         recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
           console.error('Speech recognition error:', event.error);
-          setIsListening(false);
-          reject(new Error(event.error));
+          settle(new Error(event.error));
         };
 
+        // onend fires whenever recognition stops (silence timeout, network, or abort).
+        // Rejecting here lets the caller's .catch() restart recognition automatically.
         recognition.onend = () => {
-          setIsListening(false);
           console.log('Speech recognition ended');
+          settle(new Error('ended'));
         };
 
         recognitionRef.current = recognition;
@@ -134,7 +144,9 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      // abort() fires onerror('aborted') so the promise rejects with 'aborted',
+      // which the caller uses to skip the auto-restart loop.
+      recognitionRef.current.abort();
     }
     setIsListening(false);
   }, []);
