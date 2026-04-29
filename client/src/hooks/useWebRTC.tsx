@@ -552,6 +552,14 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
     };
   }, [leaveRoom]);
 
+  const replaceVideoTrack = async (newTrack: MediaStreamTrack) => {
+    if (!peerConnectionRef.current) return;
+    const sender = peerConnectionRef.current
+      .getSenders()
+      .find(s => s.track?.kind === "video");
+    if (sender) await sender.replaceTrack(newTrack);
+  };
+
   return {
     localStream,
     remoteStream,
@@ -563,5 +571,6 @@ export function useWebRTC(roomId: string, myLanguage?: string): UseWebRTCReturn 
     leaveRoom,
     toggleMicrophone,
     toggleCamera,
+    replaceVideoTrack,
   };
 }

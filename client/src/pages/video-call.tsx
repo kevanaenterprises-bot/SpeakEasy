@@ -3,12 +3,13 @@ import { useParams, useLocation } from "wouter";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useLanguageSettings, SUPPORTED_LANGUAGES } from "@/hooks/useLanguageSettings";
+import { useBeautyFilter, DEFAULT_FILTERS, type BeautyFilters } from "@/hooks/useBeautyFilter";
 import VideoStream from "@/components/VideoStream";
 import AudioVisualizer from "@/components/AudioVisualizer";
 import CallControls from "@/components/CallControls";
 import SettingsModal from "@/components/SettingsModal";
 import { Button } from "@/components/ui/button";
-import { Languages, Signal, Settings, Phone, Video, Mic, MicOff, VideoOff, Copy, Share, ArrowLeft } from "lucide-react";
+import { Languages, Signal, Settings, Phone, Video, Mic, MicOff, VideoOff, Copy, Share, ArrowLeft, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import turtleLogo from "@assets/generated_images/Girl_turtle_talking_on_phone_d147f854.png";
 
@@ -19,6 +20,8 @@ export default function VideoCall() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [beautyFilters, setBeautyFilters] = useState<BeautyFilters>(DEFAULT_FILTERS);
+  const [showBeautyPanel, setShowBeautyPanel] = useState(false);
   
   // Redirect to home if no room ID provided
   if (!roomId) {
@@ -39,7 +42,24 @@ export default function VideoCall() {
     leaveRoom,
     toggleMicrophone,
     toggleCamera,
-  } = useWebRTC(roomId, yourLanguage?.code); // announces our language to partner on join
+    replaceVideoTrack,
+  } = useWebRTC(roomId, yourLanguage?.code);
+
+  const filteredStream = useBeautyFilter(localStream, beautyFilters);
+
+  // Swap the WebRTC video sender track whenever the filtered stream changes
+  useEffect(() => {
+    if (!filteredStream) return;
+    const videoTrack = filteredStream.getVideoTracks()[0];
+    if (videoTrack) replaceVideoTrack(videoTrack);
+  }, [filteredStream]);
+
+  // When filters are turned off, restore the original raw track
+  useEffect(() => {
+    if (beautyFilters.enabled) return;
+    const videoTrack = localStream?.getVideoTracks()[0];
+    if (videoTrack) replaceVideoTrack(videoTrack);
+  }, [beautyFilters.enabled]); // announces our language to partner on join
 
   const {
     isTranslationActive,
@@ -139,7 +159,21 @@ export default function VideoCall() {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <button 
+            <button
+              className={`p-2 transition-colors ${beautyFilters.enabled ? 'text-pink-400' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => {
+                if (!beautyFilters.enabled) {
+                  setBeautyFilters(f => ({ ...f, enabled: true }));
+                  setShowBeautyPanel(true);
+                } else {
+                  setShowBeautyPanel(v => !v);
+                }
+              }}
+              title="Beauty filters"
+            >
+              <Sparkles className="w-5 h-5" />
+            </button>
+            <button
               className="p-2 text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setIsSettingsOpen(true)}
               data-testid="button-settings"
@@ -247,13 +281,50 @@ export default function VideoCall() {
         </div>
       </div>
 
+      {/* Beauty Filter Panel */}
+      {showBeautyPanel && (
+        <div className="bg-card border-b border-border px-6 py-3">
+          <div className="flex items-center gap-6 flex-wrap">
+            <span className="text-xs text-pink-400 font-medium uppercase tracking-wide flex items-center gap-1">
+              <Sparkles className="w-3 h-3" /> Beauty
+            </span>
+            {[
+              { key: "smooth", label: "Smooth" },
+              { key: "brighten", label: "Brighten" },
+              { key: "warm", label: "Warm" },
+            ].map(({ key, label }) => (
+              <div key={key} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-14">{label}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={beautyFilters[key as keyof BeautyFilters] as number}
+                  onChange={e => setBeautyFilters(f => ({ ...f, [key]: Number(e.target.value) }))}
+                  className="w-24 accent-pink-400"
+                />
+              </div>
+            ))}
+            <button
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors ml-auto"
+              onClick={() => {
+                setBeautyFilters(f => ({ ...f, enabled: false }));
+                setShowBeautyPanel(false);
+              }}
+            >
+              Turn off
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Video Area */}
       <main className="flex-1 p-4 lg:p-6" data-testid="main-video-area">
         <div className="max-w-7xl mx-auto h-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 h-full">
             {/* Local Video Stream */}
             <VideoStream
-              stream={localStream}
+              stream={filteredStream ?? localStream}
               isLocal={true}
               participantName={`You (${yourLanguage.name})`}
               language={yourLanguage.code}
